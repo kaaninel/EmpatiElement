@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "es2015",
+    "target": "es2017",
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "alwaysStrict": true,
+    "stripInternal": true,
+    "removeComments": true,
+    "noImplicitAny": true,
+    "emitDecoratorMetadata": true,
+    "outDir": "Dist",
+    "watch": true,
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2017",
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "alwaysStrict": true,
+    "stripInternal": true,
+    "removeComments": true,
+    "noImplicitAny": true,
+    "emitDecoratorMetadata": true,
+    "outDir": "Dist",
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

@@ -1,0 +1,6 @@
+Backups
+Logs/
+Configs
+node_modules/
+Projects
+package-lock.json
