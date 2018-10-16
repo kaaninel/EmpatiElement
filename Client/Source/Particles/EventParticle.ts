@@ -2,7 +2,35 @@ import EEBase, { Constructor } from "../Particles";
 
 export const IESTarget = new EventTarget();
 
-export default function EventParticle<TBase extends Constructor<EEBase>>(Ctor: TBase){
+export function Event(
+  Event: string,
+  Host?: (this: EEBase) => EEBase | EEBase | string
+) {
+  return function(Target: any, Key: string) {
+    if (!("Events" in Target)) Target.Events = [];
+    //@ts-ignore
+    (Target as typeof EEBase).Events.push({
+      Event,
+      Host,
+      Func: Target[Key]
+    });
+  };
+}
+
+export function IEvent(Event: string) {
+  return function(Target: any, Key: string) {
+    if (!("IEvents" in Target)) Target.IEvents = [];
+    //@ts-ignore
+    (Target as typeof EEBase).IEvents.push({
+      Event,
+      Func: Target[Key]
+    });
+  };
+}
+
+export default function EventParticle<TBase extends Constructor<EEBase>>(
+  Ctor: TBase
+) {
   return class EventParticleP extends Ctor {
     static Events: Array<{
       Host?: (this: HTMLElement) => HTMLElement | string;
@@ -32,6 +60,10 @@ export default function EventParticle<TBase extends Constructor<EEBase>>(Ctor: T
         (this.Proto as typeof EventParticleP).IEvents.forEach(x => {
           IESTarget.addEventListener(x.Event, x.Func.bind(this));
         });
+    }
+
+    Dispatch(Key: string, Data: any) {
+      this.dispatchEvent(new CustomEvent(Key, { detail: Data }));
     }
   };
 }

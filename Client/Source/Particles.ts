@@ -1,6 +1,7 @@
 /// <reference path="LitHTML.d.ts"/>
 export * from "https://unpkg.com/lit-html?module";
 
+
 export default class EEBase extends HTMLElement {
   public Root = this.CreateRoot();
 
@@ -18,6 +19,10 @@ export default class EEBase extends HTMLElement {
       this.name.substr(1).replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`)
     );
   }
+
+  static get X(){
+    return document.createElement(this.toString());
+  }  
 }
 
 export type Constructor<T = {}> = new (...args: any[]) => T;

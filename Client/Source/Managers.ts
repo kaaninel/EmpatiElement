@@ -1,7 +1,7 @@
 
 import EEBase, { html, Constructor } from "./Particles";
-import { Property } from "./Decorators";
 import EmpatiElement from "./Element";
+import { Property } from "./Particles/PropertyParticle";
 
 declare global {
   interface Window { View: ViewManager, Meta: MetaManager }
