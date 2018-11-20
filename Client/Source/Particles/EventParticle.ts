@@ -2,9 +2,11 @@ import EEBase, { Constructor } from "../Particles";
 
 export const IESTarget = new EventTarget();
 
+type EventTargets = EEBase | string | Window;
+
 export function Event(
   Event: string,
-  Host?: (this: EEBase) => EEBase | EEBase | string
+  Host?: ((E: EEBase) => EventTargets) | EventTargets
 ) {
   return function(Target: any, Key: string) {
     if (!("Events" in Target)) Target.Events = [];
@@ -33,7 +35,7 @@ export default function EventParticle<TBase extends Constructor<EEBase>>(
 ) {
   return class EventParticleP extends Ctor {
     static Events: Array<{
-      Host?: (this: HTMLElement) => HTMLElement | string;
+      Host: ((E: EEBase) => EventTargets) | EventTargets
       Event: string;
       Func: Function;
     }>;
@@ -41,25 +43,61 @@ export default function EventParticle<TBase extends Constructor<EEBase>>(
       Event: string;
       Func: Function;
     }>;
+    Events: Array<{
+      Host: ((E: EEBase) => EventTargets) | EventTargets
+      Event: string;
+      Func: Function;
+      HookedHost: any;
+    }>;
 
     constructor(...args: any[]) {
       super(...args);
-      if ("Events" in this.Proto)
-        (this.Proto as typeof EventParticleP).Events.forEach(x => {
-          let Host = this;
-          if (x.Host) {
-            if (typeof x.Host === "string")
-              //@ts-ignore
-              Host = this.Root.querySelector(x.Host);
-            else if (typeof x.Host == "function") Host = x.Host.call(this);
-            else Host = x.Host;
-          }
-          Host.addEventListener(x.Event, x.Func.bind(this));
-        });
+      const Proto = this.Proto as typeof EventParticleP;
+      const Self = this;
+      if ("Events" in Proto){
+        this.Events = Proto.Events.map(x => ({
+          Event: x.Event,
+          Host: x.Host || this,
+          Func: function(Event: any){
+            return x.Func.call(Self, Event, this);
+          },
+          HookedHost: undefined
+        }));
+      }
       if ("IEvents" in this.Proto)
         (this.Proto as typeof EventParticleP).IEvents.forEach(x => {
           IESTarget.addEventListener(x.Event, x.Func.bind(this));
         });
+    }
+
+    Rendered(){
+      //@ts-ignore
+      if(super.Rendered) super.Rendered();
+      if(this.Events) {
+        for(const Event of this.Events){
+          const CHost = Event.Host.constructor == Function ? 
+            (Event.Host as Function).call(this) : Event.Host;
+          const ShouldHook = CHost != Event.HookedHost;
+          if(CHost.constructor === String || ShouldHook){
+            if(!!Event.HookedHost) 
+              this.$ResolveEventTargets(Event.HookedHost).forEach(Element => {
+                Element.removeEventListener(Event.Event, Event.Func as any);
+              });
+            this.$ResolveEventTargets(CHost).forEach(Element => {
+              Element.addEventListener(Event.Event, Event.Func as any);
+            });
+            Event.HookedHost = CHost;
+          }
+        }
+      }
+    }
+
+    $ResolveEventTargets(HostQ: EventTargets): HTMLElement[]{
+      if(HostQ.constructor === String)
+        return Array.from((this.Root as ShadowRoot)
+          .querySelectorAll(HostQ as string));
+          //@ts-ignore
+      else return HostQ instanceof Array ? HostQ : [HostQ];
     }
 
     Dispatch(Key: string, Data: any) {

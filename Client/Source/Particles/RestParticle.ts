@@ -1,6 +1,8 @@
 import EEBase, { Constructor } from "../Particles";
 
-export function Request(Ep: string, Data?: any) {
+type EPType = string | ((E: EEBase) => string);
+
+export function Request(Ep: EPType, Data?: any) {
   return function(Target: any, Key: string) {
     if (!("Requests" in Target)) Target.Requests = [];
     (Target as typeof MinimalRest).Requests.push({
@@ -11,50 +13,56 @@ export function Request(Ep: string, Data?: any) {
   };
 }
 
-export function Bind(Event: string) {
-  return function(Target: any, Key: string) {
-    if (!("Bindings" in Target)) Target.Bindings = [];
-    (Target as typeof MinimalRest).Bindings.push({ Event, Key });
-  };
-}
 const MinimalRest = RestParticle(EEBase);
 
 export default function RestParticle<TBase extends Constructor<EEBase>>(
   Ctor: TBase
 ) {
   return class RestParticleP extends Ctor {
-    static Requests: { Ep: string; Data: any; Key: string }[];
+    static Requests: { Ep: EPType; Data: any; Key: string }[];
     static Bindings: { Key: string; Event: string }[];
+
+    Requests: { Ep: EPType; Data: any; Key: string }[] = [];
+
+    RefreshRequest(Key: string, Ep: string, Data: any){
+      const body = Data && JSON.stringify(Data);
+      const method = Data ? "POST" : "GET";
+      const El = (this as any)[Key];
+      if(El && El.Ep == Ep && El.Data == Data) return;
+      const R = (this as any)[Key] = fetch(Ep, {
+        body,
+        method,
+        credentials: "same-origin"
+      }).then(x => x.json());   
+      (this as any)[Key].Ep = Ep;
+      (this as any)[Key].Data = Data; 
+    }
 
     constructor(...args: any[]) {
       super(...args);
       if ("Requests" in this.Proto)
-        for (const Req of (this.Proto as typeof MinimalRest).Requests) {
-          //@ts-ignore
-          this["$Request" + Req.Key] = () => {
-            const Data =
-              Req.Data && Req.Data.constructor == Function
-                ? Req.Data.call(this)
-                : Req.Data;
-            //@ts-ignore
-            this[Req.Key] = fetch(Req.Ep, {
-              body: Data,
-              method: Req.Data ? "POST" : "GET",
-              credentials: "same-origin"
-            }).then(x => x.json());
-          };
-          //@ts-ignore
-          this["$Request" + Req.Key]();
-        }
-      if ("Bindings" in this.Proto)
-        for (const Bind of (this.Proto as typeof MinimalRest).Bindings) {
-          if ("$Request" + Bind.Key in this)
-            this.addEventListener(
-              Bind.Event,
-              //@ts-ignore
-              this["$Request" + Bind.Key].bind(this)
-            );
-        }
+        (this.Proto as typeof MinimalRest).Requests.map(Req => {
+          const IsStatic = Req.Ep.constructor !== Function;
+          const IsStaticData = !Req.Data || Req.Data && Req.Data.constructor !== Function;
+          if(IsStatic && IsStaticData)
+            this.RefreshRequest(Req.Key, Req.Ep as string, Req.Data);
+          else if (IsStatic)
+            this.Requests.push(Req); 
+          else 
+            this.Requests.push({Key: Req.Key, Ep: (Req.Ep as Function).
+              bind(null, this), Data: Req.Data});
+        });
+    }
+
+    Rendered(){
+      //@ts-ignore
+      if(super.Rendered) super.Rendered();
+      this.Requests.forEach(x => {
+        const Ep = x.Ep.constructor === String ? x.Ep : (x.Ep as Function)();
+        const Data = x.Data && x.Data.constructor === Function ? x.Data.call(this) : x.Data;
+        this.RefreshRequest(x.Key, Ep, Data);
+      });
+      
     }
   };
 }

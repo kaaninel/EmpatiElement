@@ -186,8 +186,8 @@ class Controller {
         const Port = CLI.LastPort++;
         Server.Server.listen(Port);
         CLI.Services[Name] = { TypescriptCompiler, Server };
-        TypescriptCompiler.stdout.pipe(fs_1.createWriteStream(path_1.resolve("Logs", Name, `tsc-${Date.now()}`)));
-        TypescriptCompiler.stderr.pipe(fs_1.createWriteStream(path_1.resolve("Logs", Name, `tsc-err-${Date.now()}`)));
+        TypescriptCompiler.stdout.pipe(fs_1.createWriteStream(path_1.resolve("Logs", Name, `tsc-stdout`)));
+        TypescriptCompiler.stderr.pipe(fs_1.createWriteStream(path_1.resolve("Logs", Name, `tsc-stderr`)));
         CLI.WriteLn(`Project running: ${Name} @localhost:${Port}`);
     }
     async kill(Name) {

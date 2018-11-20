@@ -50,20 +50,13 @@ exports.default = Server;
 process.on("uncaughtException", ex => {
     console.log(ex.stack);
 });
-const Index = (Title) => `
-  <!DOCTYPE html>
+const Index = (Title) => `<!DOCTYPE html>
   <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>${Title}</title>
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-      }
-    </style>
   </head>
   <body>
     <script type="module" src="/Index.js"></script>

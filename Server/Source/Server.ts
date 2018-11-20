@@ -43,7 +43,7 @@ export default class Server {
     }
     else {
       Stream.respond({
-        "Content-Type": "text/html",
+        "Content-Type": " application/xhtml+xml",
         "Content-Length": this.IndexLength
       })
       Stream.end(this.Index);
@@ -55,16 +55,17 @@ process.on("uncaughtException", ex => {
   console.log(ex.stack);
 })
 
-const Index = (Title: string) => `
-  <!DOCTYPE html>
-  <html>
+const Index = (Title: string) => `<!DOCTYPE html
+PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"  
+"DTD/xhtml1-transitional.dtd">
+  <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>${Title}</title>
   </head>
   <body>
-    <script type="module" src="/Index.js"></script>
+    <script src="/Index.js"></script>
   </body>
   </html>`;

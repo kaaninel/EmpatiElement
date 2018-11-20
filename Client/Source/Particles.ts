@@ -1,6 +1,4 @@
-/// <reference path="LitHTML.d.ts"/>
-export * from "https://unpkg.com/lit-html?module";
-
+export * from "./Lit/lit-html";
 
 export default class EEBase extends HTMLElement {
   public Root = this.CreateRoot();
@@ -13,8 +11,10 @@ export default class EEBase extends HTMLElement {
     return this.attachShadow({ mode: "open" });
   }
 
+  static Namespace = "empati";
+
   static toString() {
-    return (
+    return this.Namespace + "-" + (
       this.name.charAt(0).toLowerCase() +
       this.name.substr(1).replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`)
     );

@@ -38,10 +38,10 @@ export class MetaManager extends Manager {
 
   Render(){
     return html`
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
       ${Object.keys(this.Manifest).map(Key => html`
-        <meta name="${Key}" content="${this.Manifest[Key]}">
+        <meta name="${Key}" content="${this.Manifest[Key]}" />
       `)}
       <title>${this.Title}</title>
     `;
