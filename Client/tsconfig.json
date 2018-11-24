@@ -9,6 +9,7 @@
     "removeComments": true,
     "noImplicitAny": true,
     "emitDecoratorMetadata": true,
+    "rootDir": "Source",
     "outDir": "Dist",
     "watch": true,
     "sourceMap": true
