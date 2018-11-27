@@ -2,25 +2,36 @@
 import EmpatiElement, { Constructor, Particle } from "./EmpatiElement";
 import { html } from "./Lit/lit-html";
 import { Property } from "./Particles/Property";
-import { GhostParticle } from "./Particles/Style";
+
+declare global {
+  interface Window { Managers: Record<string, Manager> }
+}
+
+window.Managers = {};
 
 export default class Manager extends EmpatiElement {
+  _DOM = true;
+
   CreateRoot(): HTMLElement{
     return this;
   }
+
 }
 
-@Particle(GhostParticle)
 export class ViewManager extends Manager {
+  _DOM = false;
+  
   CreateRoot(){
     return document.body;
   }
 }
 
-@Particle(GhostParticle)
 export class MetaManager extends Manager {
   @Property Title: string;
   @Property Manifest: Record<string, string> = {};
+
+  _InnerView = false;
+  _DOM = false;
 
   CreateRoot(){
     return document.head;
@@ -34,6 +45,7 @@ export class MetaManager extends Manager {
         <meta name="${Key}" content="${this.Manifest[Key]}">
       `)}
       <title>${this.Title}</title>
+      <style></style>
     `;
   }
 }
@@ -41,5 +53,6 @@ export class MetaManager extends Manager {
 export function Execute(ctor: Constructor<Manager>) {
   customElements.define(ctor.toString(), ctor);
   const E: Manager = new ctor();
-  document.documentElement.appendChild(E);
+  window.Managers[ctor.name] = E;
+  if(E._DOM) document.documentElement.appendChild(E);
 }

@@ -29,7 +29,7 @@ export function Particle(Base: typeof ParticleBase) {
   return function<T extends typeof EmpatiElement>(Constr: T) {
     const Proto = Constr.prototype;
     if (!Proto.hasOwnProperty("Particles")) Proto.Particles = {};
-    if (!Proto.Particles.hasOwnProperty(Base.name)) 
+    if (!Proto.Particles.hasOwnProperty(Base.name))
       Proto.Particles[Base.name] = new Base();
     return Constr;
   };
@@ -79,35 +79,39 @@ export default class EmpatiElement extends HTMLElement {
     );
   }
 
-  Renderable: boolean = true;
+  _Renderable = true;
+  _RAFLock = true;
+  _InnerView = true;
 
-  protected StyleSheet: HTMLStyleElement | null = null;
+  public StyleSheet: HTMLStyleElement | null = null;
+  public View: HTMLElement | null = null;
 
   protected $RenderedOnce = false;
   protected $BatchedWorkOnQueue = true;
+  protected $Queue: any[] = [];
 
   public $Stage = Stages.Constr;
 
-  private ConstrEx = false;
-  private IdleEx = false;
-  private UpdateEx = false;
-  private TemplateEx = false;
-  private StyleEx = false;
-  private RenderedEx = false;
+  private $ConstrEx = false;
+  private $IdleEx = false;
+  private $UpdateEx = false;
+  private $TemplateEx = false;
+  private $StyleEx = false;
+  private $RenderedEx = false;
 
-  protected BeforeConstr: ParticleMiddleware<void> = [];
-  protected BeforeIdle: ParticleMiddleware<void> = [];
-  protected BeforeUpdate: ParticleMiddleware<void> = [];
-  protected BeforeTemplate: ParticleMiddleware<TRorNull> = [];
-  protected BeforeStyle: ParticleMiddleware<TRorNull> = [];
-  protected BeforeRendered: ParticleMiddleware<void> = [];
+  protected $BeforeConstr: ParticleMiddleware<void>;
+  protected $BeforeIdle: ParticleMiddleware<void>;
+  protected $BeforeUpdate: ParticleMiddleware<void>;
+  protected $BeforeTemplate: ParticleMiddleware<void>;
+  protected $BeforeStyle: ParticleMiddleware<void>;
+  protected $BeforeRendered: ParticleMiddleware<void>;
 
-  protected AfterConstr: ParticleMiddleware<void> = [];
-  protected AfterIdle: ParticleMiddleware<void> = [];
-  protected AfterUpdate: ParticleMiddleware<void> = [];
-  protected AfterTemplate: ParticleMiddleware<TRorNull> = [];
-  protected AfterStyle: ParticleMiddleware<TRorNull> = [];
-  protected AfterRendered: ParticleMiddleware<void> = [];
+  protected $AfterConstr: ParticleMiddleware<void>;
+  protected $AfterIdle: ParticleMiddleware<void>;
+  protected $AfterUpdate: ParticleMiddleware<void>;
+  protected $AfterTemplate: ParticleMiddleware<void>;
+  protected $AfterStyle: ParticleMiddleware<void>;
+  protected $AfterRendered: ParticleMiddleware<void>;
 
   constructor() {
     super();
@@ -119,48 +123,60 @@ export default class EmpatiElement extends HTMLElement {
 
   protected async $Constr() {
     if (this.$Stage === Stages.Constr) {
-      this.ConstrEx = "Constr" in this;
-      this.IdleEx = "Idle" in this;
-      this.UpdateEx = "Update" in this;
-      this.TemplateEx = "Template" in this;
-      this.StyleEx = "Style" in this;
-      this.RenderedEx = "Rendered" in this;
-      const Middlewares = ParticleMiddleware.bind(this, this.Proto.Particles);
-      this.BeforeConstr = Middlewares("BeforeConstr");
-      this.BeforeIdle = Middlewares("BeforeIdle");
-      this.BeforeUpdate = Middlewares("BeforeUpdate");
-      this.BeforeTemplate = Middlewares("BeforeTemplate");
-      this.BeforeStyle = Middlewares("BeforeStyle");
-      this.BeforeRendered = Middlewares("BeforeRendered");
+      this.$ConstrEx = "Constr" in this;
+      this.$IdleEx = "Idle" in this;
+      this.$UpdateEx = "Update" in this;
+      this.$TemplateEx = "Template" in this;
+      this.$StyleEx = "Style" in this;
+      this.$RenderedEx = "Rendered" in this;
+      if (this.Proto.Particles) {
+        const Middlewares = ParticleMiddleware.bind(this, this.Proto.Particles);
+        this.$BeforeConstr = Middlewares("BeforeConstr");
+        this.$BeforeIdle = Middlewares("BeforeIdle");
+        this.$BeforeUpdate = Middlewares("BeforeUpdate");
+        this.$BeforeTemplate = Middlewares("BeforeTemplate");
+        this.$BeforeStyle = Middlewares("BeforeStyle");
+        this.$BeforeRendered = Middlewares("BeforeRendered");
 
-      this.AfterConstr = Middlewares("AfterConstr");
-      this.AfterIdle = Middlewares("AfterIdle");
-      this.AfterUpdate = Middlewares("AfterUpdate");
-      this.AfterTemplate = Middlewares("AfterTemplate");
-      this.AfterStyle = Middlewares("AfterStyle");
-      this.AfterRendered = Middlewares("AfterRendered");
+        this.$AfterConstr = Middlewares("AfterConstr");
+        this.$AfterIdle = Middlewares("AfterIdle");
+        this.$AfterUpdate = Middlewares("AfterUpdate");
+        this.$AfterTemplate = Middlewares("AfterTemplate");
+        this.$AfterStyle = Middlewares("AfterStyle");
+        this.$AfterRendered = Middlewares("AfterRendered");
+      }
 
-      if (this.StyleEx) {
+      if (this.$TemplateEx && this._InnerView) {
+        this.View = document.createElement("view");
+        this.View.style.display = "contents";
+        this.Root.appendChild(this.View);
+      }
+      if (this.$StyleEx) {
         this.StyleSheet = document.createElement("style");
         this.Root.appendChild(this.StyleSheet);
       }
-      for (const Fn of this.BeforeConstr) await Fn();
-      if (this.ConstrEx) await this.Constr();
-      for (const Fn of this.AfterConstr) Fn();
+      if (this.$BeforeConstr) for (const Fn of this.$BeforeConstr) await Fn();
+      if (this.$ConstrEx) await this.Constr();
+      if (this.$AfterConstr) for (const Fn of this.$AfterConstr) Fn();
     }
     this.$Idle();
   }
 
   private async $Idle() {
-    if (![Stages.Constr, Stages.Rendered].includes(this.$Stage)) {
-      console.warn("Anti-pattern: Still have work to do can't switch to idle!");
-      return;
-    }
-    this.$Stage = Stages.Idle;
+    if (this.$Stage !== Stages.Idle) {
+      if (![Stages.Constr, Stages.Rendered].includes(this.$Stage)) {
+        console.warn(
+          "Anti-pattern: Still have work to do can't switch to idle!",
+          this.$Stage
+        );
+        return;
+      }
+      this.$Stage = Stages.Idle;
 
-    for (const Fn of this.BeforeIdle) await Fn();
-    if (this.IdleEx) await this.Idle();
-    for (const Fn of this.AfterIdle) Fn();
+      if (this.$BeforeIdle) for (const Fn of this.$BeforeIdle) await Fn();
+      if (this.$IdleEx) await this.Idle();
+      if (this.$AfterIdle) for (const Fn of this.$AfterIdle) Fn();
+    }
     if (this.$BatchedWorkOnQueue) await this.$Update();
   }
 
@@ -171,10 +187,10 @@ export default class EmpatiElement extends HTMLElement {
     }
     this.$Stage = Stages.Update;
     this.$BatchedWorkOnQueue = false;
-    for (const Fn of this.BeforeUpdate) await Fn();
-    if (this.UpdateEx) await this.Update();
-    for (const Fn of this.AfterUpdate) Fn();
-    if (this.Renderable) this.$Template();
+    if (this.$BeforeUpdate) for (const Fn of this.$BeforeUpdate) await Fn();
+    if (this.$UpdateEx) await this.Update();
+    if (this.$AfterUpdate) for (const Fn of this.$AfterUpdate) Fn();
+    if (this._Renderable) this.$Template();
     else this.$Idle();
   }
 
@@ -186,16 +202,19 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Template;
-    for (const Fn of this.BeforeTemplate) await Fn();
-    if (this.TemplateEx) {
-      render(
-        html`
-          ${this.StyleSheet}${await this.Template()}
-        `,
-        this.Root as ShadowRoot
-      );
-    }
-    for (const Fn of this.AfterTemplate) Fn();
+    if (this.$BeforeTemplate) for (const Fn of this.$BeforeTemplate) await Fn();
+    if (this.$TemplateEx)
+      if (this._InnerView) render(await this.Template(), this.View);
+      else if (!this.$StyleEx)
+        render(await this.Template(), this.Root as ShadowRoot);
+      else
+        render(
+          html`
+            ${this.StyleSheet}${await this.Template()}
+          `,
+          this.Root as ShadowRoot
+        );
+    if (this.$AfterTemplate) for (const Fn of this.$AfterTemplate) Fn();
     this.$Style();
   }
 
@@ -205,9 +224,9 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Style;
-    for (const Fn of this.BeforeStyle) await Fn();
-    if (this.StyleEx) render(await this.Style(), this.StyleSheet);
-    for (const Fn of this.AfterStyle) Fn();
+    if (this.$BeforeStyle) for (const Fn of this.$BeforeStyle) await Fn();
+    if (this.$StyleEx) render(await this.Style(), this.StyleSheet);
+    if (this.$AfterStyle) for (const Fn of this.$AfterStyle) Fn();
     this.$Rendered();
   }
 
@@ -217,15 +236,16 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Rendered;
-    for (const Fn of this.BeforeRendered) await Fn();
-    if (this.RenderedEx) await this.Rendered();
-    for (const Fn of this.AfterRendered) Fn();
+    if (this._RAFLock) await $RAFLock;
+    if (this.$BeforeRendered) for (const Fn of this.$BeforeRendered) await Fn();
+    if (this.$RenderedEx) await this.Rendered();
+    if (this.$AfterRendered) for (const Fn of this.$AfterRendered) Fn();
     this.$Idle();
   }
 
   public async Refresh() {
     this.$BatchedWorkOnQueue = true;
-    if (this.$Stage == Stages.Idle) await this.$Update();
+    if (this.$Stage == Stages.Idle) this.$Idle();
   }
 
   Constr?(): MaybePromise<void>;
@@ -235,6 +255,15 @@ export default class EmpatiElement extends HTMLElement {
   Style?(): MaybePromise<TRorNull>;
   Rendered?(): MaybePromise<void>;
 }
+
+let $$RAFLock = () => new Promise(R => {
+  requestAnimationFrame(() => {
+    $RAFLock = $$RAFLock();
+    R();
+  });
+});
+
+let $RAFLock = $$RAFLock();
 
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function CustomElement(ctor: Constructor<EmpatiElement>) {

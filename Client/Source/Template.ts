@@ -41,7 +41,7 @@ class EmpatiStyle extends TemplateResult {
 
 export const html = (strings: TemplateStringsArray, ...values: any[]) =>
   new EmpatiTemplate(strings, values);
-
+  
 export const css = (strings: TemplateStringsArray, ...values: any[]) =>
   new EmpatiStyle(strings, values);
   
