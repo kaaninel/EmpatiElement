@@ -80,7 +80,6 @@ export default class EmpatiElement extends HTMLElement {
   }
 
   _Renderable = true;
-  _RAFLock = true;
   _InnerView = true;
 
   public StyleSheet: HTMLStyleElement | null = null;
@@ -162,6 +161,36 @@ export default class EmpatiElement extends HTMLElement {
     this.$Idle();
   }
 
+  Getters: Record<string, () => any> = {};
+  Setters: Record<string, (Value: any) => void> = {};
+
+  Store: Record<string, any> = {};
+
+  DefineProp(
+    Key: string,
+    Getter?: (Super: () => any) => any,
+    Setter?: (Super: (Value: any) => void, Value: any) => void
+  ) {
+    const AD = Key in this.Getters;
+    const SuperGetter = AD ? this.Getters[Key] : () => this.Store[Key];
+    this.Getters[Key] = Getter ? Getter.bind(this, SuperGetter) : SuperGetter;
+    const SuperSetter = AD
+      ? this.Setters[Key]
+      : (Value: any) => {
+          this.Store[Key] = Value;
+        };
+    this.Setters[Key] = Setter ? Setter.bind(this, SuperSetter) : SuperSetter;
+    if (!AD)
+      Object.defineProperty(this, Key, {
+        get() {
+          return this.Getters[Key]();
+        },
+        set(Value: any) {
+          return this.Setters[Key](Value);
+        }
+      });
+  }
+
   private async $Idle() {
     if (this.$Stage !== Stages.Idle) {
       if (![Stages.Constr, Stages.Rendered].includes(this.$Stage)) {
@@ -177,7 +206,7 @@ export default class EmpatiElement extends HTMLElement {
       if (this.$IdleEx) await this.Idle();
       if (this.$AfterIdle) for (const Fn of this.$AfterIdle) Fn();
     }
-    if (this.$BatchedWorkOnQueue) await this.$Update();
+    if (this.$BatchedWorkOnQueue) this.$Update();
   }
 
   private async $Update() {
@@ -194,6 +223,8 @@ export default class EmpatiElement extends HTMLElement {
     else this.$Idle();
   }
 
+  private $DynamicTemplate = true;
+
   private async $Template() {
     if (this.$Stage !== Stages.Update) {
       console.warn(
@@ -203,20 +234,18 @@ export default class EmpatiElement extends HTMLElement {
     }
     this.$Stage = Stages.Template;
     if (this.$BeforeTemplate) for (const Fn of this.$BeforeTemplate) await Fn();
-    if (this.$TemplateEx)
-      if (this._InnerView) render(await this.Template(), this.View);
-      else if (!this.$StyleEx)
-        render(await this.Template(), this.Root as ShadowRoot);
+    if (this.$TemplateEx && this.$DynamicTemplate) {
+      const T = await this.Template();
+      if (this._InnerView) render(T, this.View);
+      else if (!this.$StyleEx) render(T, this.Root as ShadowRoot);
       else
-        render(
-          html`
-            ${this.StyleSheet}${await this.Template()}
-          `,
-          this.Root as ShadowRoot
-        );
+        render(html`${this.StyleSheet}${T}`, this.Root as ShadowRoot);
+    }
     if (this.$AfterTemplate) for (const Fn of this.$AfterTemplate) Fn();
     this.$Style();
   }
+
+  private $DynamicStyle = true;
 
   private async $Style() {
     if (this.$Stage !== Stages.Template) {
@@ -225,7 +254,11 @@ export default class EmpatiElement extends HTMLElement {
     }
     this.$Stage = Stages.Style;
     if (this.$BeforeStyle) for (const Fn of this.$BeforeStyle) await Fn();
-    if (this.$StyleEx) render(await this.Style(), this.StyleSheet);
+    if (this.$StyleEx && this.$DynamicStyle) {
+      const S = await this.Style();
+      if (S.values.length == 0) this.$DynamicStyle = false;
+      render(S, this.StyleSheet);
+    }
     if (this.$AfterStyle) for (const Fn of this.$AfterStyle) Fn();
     this.$Rendered();
   }
@@ -236,7 +269,6 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Rendered;
-    if (this._RAFLock) await $RAFLock;
     if (this.$BeforeRendered) for (const Fn of this.$BeforeRendered) await Fn();
     if (this.$RenderedEx) await this.Rendered();
     if (this.$AfterRendered) for (const Fn of this.$AfterRendered) Fn();
@@ -255,15 +287,6 @@ export default class EmpatiElement extends HTMLElement {
   Style?(): MaybePromise<TRorNull>;
   Rendered?(): MaybePromise<void>;
 }
-
-let $$RAFLock = () => new Promise(R => {
-  requestAnimationFrame(() => {
-    $RAFLock = $$RAFLock();
-    R();
-  });
-});
-
-let $RAFLock = $$RAFLock();
 
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function CustomElement(ctor: Constructor<EmpatiElement>) {
