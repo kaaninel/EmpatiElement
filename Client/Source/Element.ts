@@ -1,4 +1,5 @@
 import { TemplateResult, render, html } from "./Lit/lit-html";
+import { css } from "./Template";
 
 export enum Stages {
   Constr,
@@ -42,6 +43,8 @@ export class ParticleBase {
   BeforeTemplate?(Target: EmpatiElement): MaybePromise<TRorNull>;
   BeforeStyle?(Target: EmpatiElement): MaybePromise<TRorNull>;
   BeforeRendered?(Target: EmpatiElement): MaybePromise<void>;
+  BeforeConnected?(Target: EmpatiElement): MaybePromise<void>;
+  BeforeDisconnected?(Target: EmpatiElement): MaybePromise<void>;
 
   AfterConstr?(Target: EmpatiElement): MaybePromise<void>;
   AfterIdle?(Target: EmpatiElement): MaybePromise<void>;
@@ -49,6 +52,8 @@ export class ParticleBase {
   AfterTemplate?(Target: EmpatiElement): MaybePromise<TRorNull>;
   AfterStyle?(Target: EmpatiElement): MaybePromise<TRorNull>;
   AfterRendered?(Target: EmpatiElement): MaybePromise<void>;
+  AfterConnected?(Target: EmpatiElement): MaybePromise<void>;
+  AfterDisconnected?(Target: EmpatiElement): MaybePromise<void>;
 }
 
 function ParticleMiddleware(Obj: any[], Key: string): ParticleMiddleware<any> {
@@ -58,15 +63,19 @@ function ParticleMiddleware(Obj: any[], Key: string): ParticleMiddleware<any> {
 }
 
 export default class EmpatiElement extends HTMLElement {
-  public Root: ShadowRoot | Node;
+  public Root: EmpatiElement | ShadowRoot;
 
-  get Proto(): EmpatiElement {
+  get Proto(): EmpatiElement{
     return this.constructor.prototype;
   }
 
-  protected CreateRoot(): ShadowRoot | Node {
-    return this.attachShadow({ mode: "open" });
+  protected CreateRoot(): EmpatiElement | ShadowRoot {
+    return this;
   }
+
+  id = this.tagName + Math.random().toString().substr(2);
+
+  $ = "#" + this.id;
 
   static Namespace = "empati";
 
@@ -78,11 +87,16 @@ export default class EmpatiElement extends HTMLElement {
         this.name.substr(1).replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`))
     );
   }
+  
+  Doc = document;
 
+  _DOM = true;
   _Renderable = true;
-  _InnerView = true;
+  _InnerView = false;
+  _CSSPreProcessor = true;
 
   public StyleSheet: HTMLStyleElement | null = null;
+
   public View: HTMLElement | null = null;
 
   protected $RenderedOnce = false;
@@ -97,6 +111,8 @@ export default class EmpatiElement extends HTMLElement {
   private $TemplateEx = false;
   private $StyleEx = false;
   private $RenderedEx = false;
+  private $ConnectedEx = false;
+  private $DisconnectedEx = false;
 
   protected $BeforeConstr: ParticleMiddleware<void>;
   protected $BeforeIdle: ParticleMiddleware<void>;
@@ -104,6 +120,8 @@ export default class EmpatiElement extends HTMLElement {
   protected $BeforeTemplate: ParticleMiddleware<void>;
   protected $BeforeStyle: ParticleMiddleware<void>;
   protected $BeforeRendered: ParticleMiddleware<void>;
+  protected $BeforeConnected: ParticleMiddleware<void>;
+  protected $BeforeDisconnected: ParticleMiddleware<void>;
 
   protected $AfterConstr: ParticleMiddleware<void>;
   protected $AfterIdle: ParticleMiddleware<void>;
@@ -111,6 +129,8 @@ export default class EmpatiElement extends HTMLElement {
   protected $AfterTemplate: ParticleMiddleware<void>;
   protected $AfterStyle: ParticleMiddleware<void>;
   protected $AfterRendered: ParticleMiddleware<void>;
+  protected $AfterConnected: ParticleMiddleware<void>;
+  protected $AfterDisconnected: ParticleMiddleware<void>;
 
   constructor() {
     super();
@@ -128,6 +148,8 @@ export default class EmpatiElement extends HTMLElement {
       this.$TemplateEx = "Template" in this;
       this.$StyleEx = "Style" in this;
       this.$RenderedEx = "Rendered" in this;
+      this.$ConnectedEx = "Connected" in this;
+      this.$DisconnectedEx = "Disconnected" in this;
       if (this.Proto.Particles) {
         const Middlewares = ParticleMiddleware.bind(this, this.Proto.Particles);
         this.$BeforeConstr = Middlewares("BeforeConstr");
@@ -136,6 +158,8 @@ export default class EmpatiElement extends HTMLElement {
         this.$BeforeTemplate = Middlewares("BeforeTemplate");
         this.$BeforeStyle = Middlewares("BeforeStyle");
         this.$BeforeRendered = Middlewares("BeforeRendered");
+        this.$BeforeConnected = Middlewares("BeforeConnected");
+        this.$BeforeDisconnected = Middlewares("BeforeDisconnected");
 
         this.$AfterConstr = Middlewares("AfterConstr");
         this.$AfterIdle = Middlewares("AfterIdle");
@@ -143,13 +167,15 @@ export default class EmpatiElement extends HTMLElement {
         this.$AfterTemplate = Middlewares("AfterTemplate");
         this.$AfterStyle = Middlewares("AfterStyle");
         this.$AfterRendered = Middlewares("AfterRendered");
+        this.$AfterConnected = Middlewares("AfterConnected");
+        this.$AfterDisconnected = Middlewares("AfterDisconnected");
       }
 
       if (this.$TemplateEx && this._InnerView) {
         this.View = document.createElement("view");
         this.View.style.display = "contents";
         this.Root.appendChild(this.View);
-      }
+      }      
       if (this.$StyleEx) {
         this.StyleSheet = document.createElement("style");
         this.Root.appendChild(this.StyleSheet);
@@ -158,6 +184,8 @@ export default class EmpatiElement extends HTMLElement {
       if (this.$ConstrEx) await this.Constr();
       if (this.$AfterConstr) for (const Fn of this.$AfterConstr) Fn();
     }
+    if(!this._DOM) 
+      await this.connectedCallback();
     this.$Idle();
   }
 
@@ -223,7 +251,8 @@ export default class EmpatiElement extends HTMLElement {
     else this.$Idle();
   }
 
-  private $DynamicTemplate = true;
+  protected _DynamicTemplate = true;
+  protected $FirstTemplate = true;
 
   private async $Template() {
     if (this.$Stage !== Stages.Update) {
@@ -233,19 +262,21 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Template;
-    if (this.$BeforeTemplate) for (const Fn of this.$BeforeTemplate) await Fn();
-    if (this.$TemplateEx && this.$DynamicTemplate) {
-      const T = await this.Template();
-      if (this._InnerView) render(T, this.View);
-      else if (!this.$StyleEx) render(T, this.Root as ShadowRoot);
-      else
-        render(html`${this.StyleSheet}${T}`, this.Root as ShadowRoot);
+    if(!this._DynamicTemplate && this.$FirstTemplate || this._DynamicTemplate){
+      if (this.$BeforeTemplate) for (const Fn of this.$BeforeTemplate) await Fn();
+      if (this.$TemplateEx) {
+        const T = await this.Template();
+        if (this._InnerView) render(T, this.View);
+        else render(T, this.Root);
+        this.$FirstTemplate = false;
+      }
+      if (this.$AfterTemplate) for (const Fn of this.$AfterTemplate) Fn();
     }
-    if (this.$AfterTemplate) for (const Fn of this.$AfterTemplate) Fn();
     this.$Style();
   }
 
-  private $DynamicStyle = true;
+  protected _DynamicStyle = true;
+  protected $FirstStyle = true;
 
   private async $Style() {
     if (this.$Stage !== Stages.Template) {
@@ -253,13 +284,12 @@ export default class EmpatiElement extends HTMLElement {
       return;
     }
     this.$Stage = Stages.Style;
-    if (this.$BeforeStyle) for (const Fn of this.$BeforeStyle) await Fn();
-    if (this.$StyleEx && this.$DynamicStyle) {
-      const S = await this.Style();
-      if (S.values.length == 0) this.$DynamicStyle = false;
-      render(S, this.StyleSheet);
+    if(!this._DynamicStyle && this.$FirstStyle || this._DynamicStyle){
+      if (this.$BeforeStyle) for (const Fn of this.$BeforeStyle) await Fn();
+      if (this.$StyleEx) (window.Managers.Stylist as any).Set(this, await this.Style());
+      if (this.$AfterStyle) for (const Fn of this.$AfterStyle) Fn();
+      this.$FirstStyle = false;
     }
-    if (this.$AfterStyle) for (const Fn of this.$AfterStyle) Fn();
     this.$Rendered();
   }
 
@@ -280,15 +310,36 @@ export default class EmpatiElement extends HTMLElement {
     if (this.$Stage == Stages.Idle) this.$Idle();
   }
 
+  async connectedCallback(){
+    const E = this.parentElement as EmpatiElement;
+    if(E && E.Doc) this.Doc = E.Doc;
+    if (this.$BeforeConnected) for (const Fn of this.$BeforeConnected) await Fn();
+    if (this.$ConnectedEx) await this.Connected();
+    if (this.$AfterConnected) for (const Fn of this.$AfterConnected) Fn();
+  }
+
+  async disconnectedCallback(){
+    if (this.$BeforeDisconnected) for (const Fn of this.$BeforeDisconnected) await Fn();
+    if (this.$DisconnectedEx) await this.Disconnect();
+    if (this.$AfterDisconnected) for (const Fn of this.$AfterDisconnected) Fn();
+  }
+
+  static Style?(): MaybePromise<TRorNull>
+
   Constr?(): MaybePromise<void>;
+  Connected?(): MaybePromise<void>;
   Idle?(): MaybePromise<void>;
   Update?(): MaybePromise<void>;
   Template?(): MaybePromise<TRorNull>;
   Style?(): MaybePromise<TRorNull>;
   Rendered?(): MaybePromise<void>;
+  Disconnect?(): MaybePromise<void>;
 }
 
 export type Constructor<T = {}> = new (...args: any[]) => T;
-export function CustomElement(ctor: Constructor<EmpatiElement>) {
-  customElements.define(ctor.toString(), ctor);
+export function CustomElement<T extends typeof EmpatiElement>(ctor: T) {
+  const Key = ctor.toString();
+  customElements.define(Key, ctor);
+  if(ctor.Style)
+    (window.Managers.Stylist.constructor as any).Styles[Key] = ctor.Style();
 }

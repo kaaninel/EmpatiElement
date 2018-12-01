@@ -1,5 +1,5 @@
 
-import EmpatiElement, { ParticleBase, RegisterParticle } from "../EmpatiElement";
+import EmpatiElement, { ParticleBase, RegisterParticle } from "../Element";
 
 export function Property(Target: EmpatiElement, Key: string){
   RegisterParticle(PropertyParticle, Target);

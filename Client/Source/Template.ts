@@ -1,6 +1,6 @@
 import { TemplateResult, defaultTemplateProcessor } from "./Lit/lit-html";
 
-class EmpatiTemplate extends TemplateResult {
+export class EmpatiTemplate extends TemplateResult {
   constructor(strings: TemplateStringsArray, values: any[]) {
     super(strings, values, "html", defaultTemplateProcessor);
   }
@@ -33,7 +33,7 @@ class EmpatiTemplate extends TemplateResult {
   }
 }
 
-class EmpatiStyle extends TemplateResult {
+export class EmpatiStyle extends TemplateResult {
   constructor(strings: TemplateStringsArray, values: any[]) {
     super(strings, values, "html", defaultTemplateProcessor);
   }
@@ -42,6 +42,5 @@ class EmpatiStyle extends TemplateResult {
 export const html = (strings: TemplateStringsArray, ...values: any[]) =>
   new EmpatiTemplate(strings, values);
   
-export const css = (strings: TemplateStringsArray, ...values: any[]) =>
+export const css = (strings: TemplateStringsArray, ...values: any[]) => 
   new EmpatiStyle(strings, values);
-  

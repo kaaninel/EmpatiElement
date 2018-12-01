@@ -1,7 +1,8 @@
 
-import EmpatiElement, { Constructor, Particle } from "./EmpatiElement";
+import EmpatiElement, { Constructor } from "./Element";
 import { html } from "./Lit/lit-html";
 import { Property } from "./Particles/Property";
+import { EmpatiStyle } from "./Template";
 
 declare global {
   interface Window { Managers: Record<string, Manager> }
@@ -10,11 +11,6 @@ declare global {
 window.Managers = {};
 
 export default class Manager extends EmpatiElement {
-  _DOM = true;
-
-  CreateRoot(): HTMLElement{
-    return this;
-  }
 
 }
 
@@ -22,7 +18,7 @@ export class ViewManager extends Manager {
   _DOM = false;
   
   CreateRoot(){
-    return document.body;
+    return document.body as EmpatiElement;
   }
 }
 
@@ -34,7 +30,7 @@ export class MetaManager extends Manager {
   _DOM = false;
 
   CreateRoot(){
-    return document.head;
+    return document.head as EmpatiElement;
   }
 
   Template(){
@@ -45,7 +41,6 @@ export class MetaManager extends Manager {
         <meta name="${Key}" content="${this.Manifest[Key]}">
       `)}
       <title>${this.Title}</title>
-      <style></style>
     `;
   }
 }
@@ -55,4 +50,28 @@ export function Execute(ctor: Constructor<Manager>) {
   const E: Manager = new ctor();
   window.Managers[ctor.name] = E;
   if(E._DOM) document.documentElement.appendChild(E);
+}
+
+@Execute
+class Stylist extends Manager {
+
+  static Styles: Record<string, EmpatiStyle> = {};
+
+  @Property Styles: Record<string, EmpatiStyle> = {};
+
+  Set(Host: EmpatiElement, Value: EmpatiStyle){
+    //Value.strings = Value.strings.map(x => x.replace(/&(&|\|)/, Key => Key == "&" ? Host.tagName : Host.id));
+    this.Styles[Host.id] = Value;
+    this.Refresh(); 
+  }
+
+  Template(){
+    return html`
+      <style>
+        ${Object.values((this.constructor as typeof Stylist).Styles)}
+        ${Object.values(this.Styles)}
+        </style>
+    `;
+  }
+
 }

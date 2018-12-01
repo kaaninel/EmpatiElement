@@ -1,4 +1,4 @@
-import EmpatiElement, { RegisterParticle, ParticleBase } from "../EmpatiElement";
+import EmpatiElement, { RegisterParticle, ParticleBase } from "../Element";
 
 export function Store(Selector: string, Reactive = true){
   return function<T extends EmpatiElement>(Target: T, Key: Extract<keyof T, string>) {
