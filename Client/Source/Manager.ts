@@ -1,13 +1,17 @@
 
-import EmpatiElement, { Constructor } from "./Element";
+import EmpatiElement, { Constructor, CustomElement } from "./Element";
 import { html } from "./Lit/lit-html";
 import { Property } from "./Particles/Property";
-import { EmpatiStyle } from "./Template";
+import { EmpatiStyle, css } from "./Template";
 
 declare global {
-  interface Window { Managers: Record<string, Manager> }
+  interface Window { 
+    Managers: Record<string, Manager>,
+    Styles: Record<string, EmpatiStyle>
+  }
 }
 
+window.Styles = {};
 window.Managers = {};
 
 export default class Manager extends EmpatiElement {
@@ -24,9 +28,10 @@ export class ViewManager extends Manager {
 
 export class MetaManager extends Manager {
   @Property Title: string;
-  @Property Manifest: Record<string, string> = {};
-
-  _InnerView = false;
+  @Property Manifest: Record<string, string> = {
+    viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
+  };
+  
   _DOM = false;
 
   CreateRoot(){
@@ -36,7 +41,6 @@ export class MetaManager extends Manager {
   Template(){
     return html`
       <meta charset="UTF-8" >
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       ${Object.keys(this.Manifest).map(Key => html`
         <meta name="${Key}" content="${this.Manifest[Key]}">
       `)}
@@ -46,8 +50,8 @@ export class MetaManager extends Manager {
 }
 
 export function Execute(ctor: Constructor<Manager>) {
-  customElements.define(ctor.toString(), ctor);
-  const E: Manager = new ctor();
+  const G = CustomElement(ctor as typeof EmpatiElement);
+  const E: Manager = new G();
   window.Managers[ctor.name] = E;
   if(E._DOM) document.documentElement.appendChild(E);
 }
@@ -55,20 +59,25 @@ export function Execute(ctor: Constructor<Manager>) {
 @Execute
 class Stylist extends Manager {
 
-  static Styles: Record<string, EmpatiStyle> = {};
-
   @Property Styles: Record<string, EmpatiStyle> = {};
 
   Set(Host: EmpatiElement, Value: EmpatiStyle){
-    //Value.strings = Value.strings.map(x => x.replace(/&(&|\|)/, Key => Key == "&" ? Host.tagName : Host.id));
     this.Styles[Host.id] = Value;
     this.Refresh(); 
+  }
+
+  static Style(){
+    return css`
+      ${this} {
+        display: none;
+      }
+    `;
   }
 
   Template(){
     return html`
       <style>
-        ${Object.values((this.constructor as typeof Stylist).Styles)}
+        ${Object.values(window.Styles)}
         ${Object.values(this.Styles)}
         </style>
     `;

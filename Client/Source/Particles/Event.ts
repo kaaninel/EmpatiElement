@@ -14,12 +14,12 @@ export const Event = new Proxy(EventTransform, {
 export class EventParticle extends ParticleBase {
   Definitions: [string, string | undefined, Function][] = [];
 
-  BeforeConstr(Target: EmpatiElement){
+  AfterConnected(Target: EmpatiElement){
     this.Definitions.forEach(Def => {
       (Target as any)[Def[0]] = function(this: HTMLElement, Event: CustomEvent){
         return Def[2].call(Target, Event, this);
       }
-      if(Def[1]) Target.addEventListener(Def[1], (Target as any)[Def[0]]);
+      if(Def[1]) Target.Root.addEventListener(Def[1], (Target as any)[Def[0]]);
     });
   }
 }

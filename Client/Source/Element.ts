@@ -1,5 +1,5 @@
 import { TemplateResult, render, html } from "./Lit/lit-html";
-import { css } from "./Template";
+import { css, EmpatiStyle } from "./Template";
 
 export enum Stages {
   Constr,
@@ -87,13 +87,12 @@ export default class EmpatiElement extends HTMLElement {
         this.name.substr(1).replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`))
     );
   }
-  
+
   Doc = document;
 
   _DOM = true;
   _Renderable = true;
   _InnerView = false;
-  _CSSPreProcessor = true;
 
   public StyleSheet: HTMLStyleElement | null = null;
 
@@ -135,7 +134,6 @@ export default class EmpatiElement extends HTMLElement {
   constructor() {
     super();
     this.Root = this.CreateRoot();
-    this.$Constr();
   }
 
   public Particles: Record<string, ParticleBase>;
@@ -208,7 +206,8 @@ export default class EmpatiElement extends HTMLElement {
           this.Store[Key] = Value;
         };
     this.Setters[Key] = Setter ? Setter.bind(this, SuperSetter) : SuperSetter;
-    if (!AD)
+    if (!AD){
+      this.Store[Key] = (this as any)[Key];
       Object.defineProperty(this, Key, {
         get() {
           return this.Getters[Key]();
@@ -217,6 +216,7 @@ export default class EmpatiElement extends HTMLElement {
           return this.Setters[Key](Value);
         }
       });
+    }
   }
 
   private async $Idle() {
@@ -324,7 +324,7 @@ export default class EmpatiElement extends HTMLElement {
     if (this.$AfterDisconnected) for (const Fn of this.$AfterDisconnected) Fn();
   }
 
-  static Style?(): MaybePromise<TRorNull>
+  static Style?(): EmpatiStyle;
 
   Constr?(): MaybePromise<void>;
   Connected?(): MaybePromise<void>;
@@ -339,7 +339,14 @@ export default class EmpatiElement extends HTMLElement {
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function CustomElement<T extends typeof EmpatiElement>(ctor: T) {
   const Key = ctor.toString();
-  customElements.define(Key, ctor);
+  const HostClass = class extends (ctor as any) {
+    constructor(){
+      super();
+      this.$Constr();
+    }
+  };
+  customElements.define(Key, HostClass);
   if(ctor.Style)
-    (window.Managers.Stylist.constructor as any).Styles[Key] = ctor.Style();
+    window.Styles[Key] = ctor.Style();
+  return HostClass as T;
 }
