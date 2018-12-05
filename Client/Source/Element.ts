@@ -74,7 +74,6 @@ export default class EmpatiElement extends HTMLElement {
   }
 
   id = this.tagName + Math.random().toString().substr(2);
-
   $ = "#" + this.id;
 
   static Namespace = "empati";
@@ -88,13 +87,12 @@ export default class EmpatiElement extends HTMLElement {
     );
   }
 
-  Doc = document;
+  Doc: Document | EmpatiElement = document;
+  $StyleRoot: EmpatiElement & {$SetStyle: (Host: EmpatiElement, Value: EmpatiStyle) => void};
 
   _DOM = true;
   _Renderable = true;
-  _InnerView = false;
-
-  public StyleSheet: HTMLStyleElement | null = null;
+  _InnerView = true;
 
   public View: HTMLElement | null = null;
 
@@ -136,6 +134,8 @@ export default class EmpatiElement extends HTMLElement {
     this.Root = this.CreateRoot();
   }
 
+  public Slot: Node[] = null;
+
   public Particles: Record<string, ParticleBase>;
 
   protected async $Constr() {
@@ -168,16 +168,15 @@ export default class EmpatiElement extends HTMLElement {
         this.$AfterConnected = Middlewares("AfterConnected");
         this.$AfterDisconnected = Middlewares("AfterDisconnected");
       }
-
-      if (this.$TemplateEx && this._InnerView) {
-        this.View = document.createElement("view");
-        this.View.style.display = "contents";
-        this.Root.appendChild(this.View);
-      }      
-      if (this.$StyleEx) {
-        this.StyleSheet = document.createElement("style");
-        this.Root.appendChild(this.StyleSheet);
+      if(this.$TemplateEx){
+        this.Slot = Array.from(this.childNodes);
+        if (this._InnerView) {
+          this.View = document.createElement("view");
+          this.View.style.display = "contents";
+          this.Root.appendChild(this.View);
+        }
       }
+      if("$$Constr" in this) await this.$$Constr();
       if (this.$BeforeConstr) for (const Fn of this.$BeforeConstr) await Fn();
       if (this.$ConstrEx) await this.Constr();
       if (this.$AfterConstr) for (const Fn of this.$AfterConstr) Fn();
@@ -186,6 +185,8 @@ export default class EmpatiElement extends HTMLElement {
       await this.connectedCallback();
     this.$Idle();
   }
+
+  $$Constr?(): void;
 
   Getters: Record<string, () => any> = {};
   Setters: Record<string, (Value: any) => void> = {};
@@ -286,7 +287,8 @@ export default class EmpatiElement extends HTMLElement {
     this.$Stage = Stages.Style;
     if(!this._DynamicStyle && this.$FirstStyle || this._DynamicStyle){
       if (this.$BeforeStyle) for (const Fn of this.$BeforeStyle) await Fn();
-      if (this.$StyleEx) (window.Managers.Stylist as any).Set(this, await this.Style());
+      if (this.$StyleEx) 
+        this.$StyleRoot.$SetStyle(this, await this.Style());
       if (this.$AfterStyle) for (const Fn of this.$AfterStyle) Fn();
       this.$FirstStyle = false;
     }
@@ -313,6 +315,7 @@ export default class EmpatiElement extends HTMLElement {
   async connectedCallback(){
     const E = this.parentElement as EmpatiElement;
     if(E && E.Doc) this.Doc = E.Doc;
+    this.$StyleRoot = (this.Doc === document ? window.Managers.Stylist : this.Doc) as any;
     if (this.$BeforeConnected) for (const Fn of this.$BeforeConnected) await Fn();
     if (this.$ConnectedEx) await this.Connected();
     if (this.$AfterConnected) for (const Fn of this.$AfterConnected) Fn();
@@ -346,7 +349,7 @@ export function CustomElement<T extends typeof EmpatiElement>(ctor: T) {
     }
   };
   customElements.define(Key, HostClass);
-  if(ctor.Style)
+  if(ctor.Style && !(ctor as any).$ComponentMark)
     window.Styles[Key] = ctor.Style();
   return HostClass as T;
 }

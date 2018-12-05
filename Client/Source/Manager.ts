@@ -15,7 +15,7 @@ window.Styles = {};
 window.Managers = {};
 
 export default class Manager extends EmpatiElement {
-
+  _InnerView = false;
 }
 
 export class ViewManager extends Manager {
@@ -31,7 +31,9 @@ export class MetaManager extends Manager {
   @Property Manifest: Record<string, string> = {
     viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
   };
-  
+  @Property StyleSheets: string[] = [];
+  @Property JavaScript: string[] = [];
+
   _DOM = false;
 
   CreateRoot(){
@@ -43,6 +45,12 @@ export class MetaManager extends Manager {
       <meta charset="UTF-8" >
       ${Object.keys(this.Manifest).map(Key => html`
         <meta name="${Key}" content="${this.Manifest[Key]}">
+      `)}
+      ${this.StyleSheets.map(Key => html`
+        <link rel="stylesheet" type="text/css" href="${Key}"> 
+      `)}
+      ${this.JavaScript.map(Key => html`
+        <script src="${Key}"></script> 
       `)}
       <title>${this.Title}</title>
     `;
@@ -61,7 +69,9 @@ class Stylist extends Manager {
 
   @Property Styles: Record<string, EmpatiStyle> = {};
 
-  Set(Host: EmpatiElement, Value: EmpatiStyle){
+  _InnerView = false;
+
+  $SetStyle(Host: EmpatiElement, Value: EmpatiStyle){
     this.Styles[Host.id] = Value;
     this.Refresh(); 
   }
@@ -79,7 +89,7 @@ class Stylist extends Manager {
       <style>
         ${Object.values(window.Styles)}
         ${Object.values(this.Styles)}
-        </style>
+      </style>
     `;
   }
 
