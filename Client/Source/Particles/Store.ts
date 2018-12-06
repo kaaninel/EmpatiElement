@@ -7,7 +7,13 @@ export function Store(Selector: string, Reactive = true){
   } 
 }
 
-const Storage: Record<string, any> = {};
+declare global {
+  interface Window { Storage: Record<string, any> }
+}
+
+
+
+const Storage: Record<string, any> = window.Storage = {};
 const Targets: Record<string, EmpatiElement[]> = {};
 
 class StoreParticle extends ParticleBase {
@@ -23,6 +29,7 @@ class StoreParticle extends ParticleBase {
     const Old = (Target as any)[Data[0]];
     if(Old) Storage[Data[1]] = Old;
     Target.DefineProp(Data[0], () => Storage[Data[1]], (Super, Value) => {
+      console.log(Targets);
       const Old = Storage[Data[1]];
       if(Old === Value) return Old;
       Storage[Data[1]] = Value;

@@ -132,6 +132,9 @@ export default class EmpatiElement extends HTMLElement {
   constructor() {
     super();
     this.Root = this.CreateRoot();
+    new Promise((R) => {
+      this.$Constr();
+    });
   }
 
   public Slot: Node[] = null;
@@ -342,14 +345,8 @@ export default class EmpatiElement extends HTMLElement {
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function CustomElement<T extends typeof EmpatiElement>(ctor: T) {
   const Key = ctor.toString();
-  const HostClass = class extends (ctor as any) {
-    constructor(){
-      super();
-      this.$Constr();
-    }
-  };
-  customElements.define(Key, HostClass);
+  customElements.define(Key, ctor);
   if(ctor.Style && !(ctor as any).$ComponentMark)
     window.Styles[Key] = ctor.Style();
-  return HostClass as T;
+  return  ctor;
 }
